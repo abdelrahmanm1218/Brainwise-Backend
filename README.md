@@ -97,7 +97,6 @@ employee_management/
 │           └── bwemployee/        # Employee DocType
 ├── openapi.yaml                   # API documentation (OpenAPI 3.0)
 ├── README.md                      # This file
-└── EVALUATION_REPORT.md           # Detailed evaluation report
 ```
 
 ### Implementation Approach
@@ -116,9 +115,15 @@ This structure ensures:
 
 #### 2. Validation Strategy
 
+
+**Hired On and Days Employed**
+- hired_on and days_employeed will be forced to set to None if the employee_status is not Hired.
+- If employee Status not equal hired, and user try to set the hired_on it will throw a Validation Error and also Logs the Error.
+- If employee_status is Hired then hired_on can have a value of a Date type and days_employeed will be dynamically calculated from hired_on date
+
 **Email Validation**:
 - Uses Frappe's built-in `validate_email_address()` function
-- Checks for duplicate emails across all employees
+- Checks for duplicate emails across all employees, if yes don't create employee
 - Throws validation errors with clear messages
 
 **Phone Number Validation**:
@@ -129,10 +134,15 @@ This structure ensures:
 
 **Referential Integrity**:
 - Validates that selected department belongs to selected company
-- Prevents deletion of companies/departments with related records
+- Prevents deletion of companies/departments with related records, no department can be deleted if there linked employees, no companies can be deleted if there linked department & employees.
 - Ensures data consistency
 
 #### 3. Automated Calculations
+
+**Department Counts**:
+- Automatically updated when department are created, updated, or deleted
+- Uses `frappe.db.count()` for efficient counting
+- Updates company counts
 
 **Employee Counts**:
 - Automatically updated when employees are created, updated, or deleted
@@ -280,16 +290,31 @@ cd /path/to/your/bench
 bench --site <your-site-name> install-app employee_management
 
 # Example:
-bench --site development.localhost install-app employee_management
+bench --site brain.localhost install-app employee_management
 ```
 
 ### Step 4: Migrate Database
 
-After installation, migrate the database to create the DocTypes:
+After installation, migrate the database to create the DocTypes and automatically set up the application roles:
 
 ```bash
 bench --site <your-site-name> migrate
 ```
+
+**Note**: The migration process will automatically create the following 4 roles:
+- `BWAdmin` - Full administrative access
+- `BWManager` - Manager-level access
+- `BWEmployee` - Employee-level access
+- `BWCompany` - Company-level access
+
+These roles are created via the `after_migrate` hook and will be available immediately after migration completes.
+
+**Default Admin User**: The migration also automatically creates a default admin user with the following credentials:
+- **Email**: `admin@mail.com`
+- **Password**: `admin`
+- **Role**: `BWAdmin`
+
+You can use these credentials to log in immediately after migration. **Important**: Change the password after first login for security purposes.
 
 ### Step 5: Build Assets (if needed)
 
@@ -314,7 +339,7 @@ bench build
 1. **Create a Frappe Site** (if you don't have one):
    ```bash
    bench new-site <site-name>
-   # Example: bench new-site development.localhost
+   # Example: bench new-site brain.localhost
    ```
 
 2. **Install the Application**:
@@ -322,15 +347,34 @@ bench build
    bench --site <site-name> install-app employee_management
    ```
 
-3. **Set Up Roles** (if not automatically created):
-   - Navigate to: **Setup > Users and Permissions > Role**
-   - Create the following roles if they don't exist:
-     - `BWAdmin` - Full administrative access
-     - `BWManager` - Manager-level access
-     - `BWEmployee` - Employee-level access
-     - `BWCompany` - Company-level access
+3. **Migrate the Database**:
+   ```bash
+   bench --site <site-name> migrate
+   ```
+   
+   **Automatic Role Creation**: The migration process automatically creates the following 4 roles:
+   - `BWAdmin` - Full administrative access
+   - `BWManager` - Manager-level access
+   - `BWEmployee` - Employee-level access
+   - `BWCompany` - Company-level access
+   
+   These roles are created via the `after_migrate` hook and are ready to use immediately after migration.
+   
+   **Default Admin User**: The migration also automatically creates a default ready to use admin user:
+   - **Email**: `admin@mail.com`
+   - **Password**: `admin`
+   - **Role**: `BWAdmin`
+   
+   You can use these credentials to log in immediately after migration.
 
-4. **Assign Roles to Users**:
+4. **Log In with Default Admin User** (Optional):
+   - Use the default credentials to access the system:
+     - Email: `admin@mail.com`
+     - Password: `admin`
+   - Navigate to the login page and enter these credentials
+   
+
+5. **Assign Roles to Users** (Optional):
    - Go to: **Setup > Users and Permissions > User**
    - Edit users and assign appropriate roles
 
@@ -461,7 +505,6 @@ The API is accessible at:
 - [x] **Code Documentation**
   - [x] README.md with setup instructions
   - [x] Code comments where necessary
-  - [x] Evaluation report
 
 #### Security & Permissions
 - [x] **Role-Based Access Control**
@@ -480,12 +523,7 @@ The API is accessible at:
 
 - [ ] **Workflow Implementation**
   - [ ] Employee status workflow (planned but not implemented)
-  - [ ] Validate `hired_on` when status changes to "Hired"
 
-- [ ] **Data Visualizations**
-  - [ ] Dashboard with employee statistics
-  - [ ] Charts for department distribution
-  - [ ] Reports with visual elements
 
 - [ ] **Advanced Features**
   - [ ] Manager detection logic (`is_manager` field exists but not implemented)
@@ -497,7 +535,7 @@ The API is accessible at:
 
 1. **Frappe Framework**: Assumes users are familiar with Frappe framework or have access to Frappe documentation
 2. **Database**: Assumes MariaDB or PostgreSQL is already set up and configured
-3. **Roles**: Assumes roles will be created manually or via migration scripts
+3. **Roles**: The 4 application roles (BWAdmin, BWManager, BWEmployee, BWCompany) are automatically created during migration via the `after_migrate` hook
 4. **API Usage**: Assumes API consumers understand REST principles and OpenAPI documentation
 5. **Email Format**: Uses standard email validation; assumes international phone number format with optional `+` prefix
 6. **Date Format**: Uses ISO 8601 date format (YYYY-MM-DD) for dates
@@ -1029,42 +1067,6 @@ bench --site <site-name> console
 
 ---
 
-## Contributing
-
-### Contribution Guidelines
-
-1. Follow Frappe coding standards
-2. Write clear commit messages
-3. Add tests for new features
-4. Update documentation
-5. Ensure pre-commit hooks pass
-
-### Reporting Issues
-
-When reporting issues, please include:
-- Frappe version
-- Application version
-- Steps to reproduce
-- Expected vs actual behavior
-- Error messages/logs
-
----
-
-## License
-
-This application is licensed under the MIT License. See `license.txt` for details.
-
----
-
-## Support
-
-For issues, questions, or contributions:
-- Check the [Frappe Documentation](https://frappeframework.com/docs)
-- Review the `EVALUATION_REPORT.md` for known issues
-- Contact: info@mail.com
-
----
-
 ## Changelog
 
 ### Version 1.0.0 (Current)
@@ -1076,6 +1078,6 @@ For issues, questions, or contributions:
 
 ---
 
-**Last Updated**: December 2024  
+**Last Updated**: December 2025  
 **Application Version**: 1.0.0  
 **Frappe Version**: 15.x
