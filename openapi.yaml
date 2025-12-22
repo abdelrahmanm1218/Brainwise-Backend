@@ -1,0 +1,1501 @@
+openapi: 3.0.3
+info:
+  title: Employee Management API
+  description: |
+    API documentation for the Employee Management application.
+    
+    This API provides endpoints for managing companies, departments, and employees.
+    
+    ## Authentication
+    Most API requests require authentication using either:
+    - **Session Cookie**: Use the `/method/employee_management.auth.login` endpoint to authenticate and receive a session ID (sid). The session cookie is automatically set and can be used for subsequent requests.
+    - **API Key**: Include `Authorization: token <api_key>:<api_secret>` header for programmatic access
+    
+    ## Login
+    To authenticate, make a POST request to `/method/employee_management.auth.login` with your username and password. 
+    On success, you'll receive a session ID (sid) that can be used for authenticated requests.
+    
+    ## Base URL
+    The base URL for all endpoints is: `https://your-site.com/api`
+    
+  version: 1.0.0
+  contact:
+    name: Employee Management API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  # - url: https://your-site.com/api
+  #   description: Production server
+  - url: http://brain.localhost:8013/api
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: Authentication and session management
+  - name: Companies
+    description: Operations related to companies
+  - name: Departments
+    description: Operations related to departments
+  - name: Employees
+    description: Operations related to employees
+
+paths:
+  # ============================================
+  # AUTHENTICATION ENDPOINTS
+  # ============================================
+  /method/employee_management.auth.login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: |
+        Authenticate a user with username and password.
+        
+        On successful authentication, a session ID (sid) is returned which can be used
+        for subsequent API requests via session cookie authentication.
+        
+        **Note:** This endpoint does not require authentication (allow_guest=True).
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              usr: "administrator@example.com"
+              pwd: "your_password"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: Session cookie (sid) is set automatically
+              schema:
+                type: string
+                example: "sid=abc123def456; Path=/; HttpOnly"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccessResponse'
+              example:
+                message:
+                  success: true
+                  message: "Authentication Success"
+                  sid: "abc123def456789"
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginErrorResponse'
+              example:
+                message:
+                  success: false
+                  message: "Authentication Failed"
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /method/employee_management.auth.account:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user account information
+      description: |
+        Retrieve the account information for the currently authenticated user.
+        
+        Returns user details including name, roles, contact information, and preferences.
+        
+        **Note:** This endpoint requires authentication. The user must be logged in.
+      operationId: getAccount
+      responses:
+        '200':
+          description: Account information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+              example:
+                name: "administrator@example.com"
+                creation: "2024-01-01 10:00:00"
+                first_name: "John"
+                middle_name: ""
+                last_name: "Doe"
+                full_name: "John Doe"
+                username: "administrator"
+                roles:
+                  - "System Manager"
+                  - "BWAdmin"
+                mobile_no: "+1-555-123-4567"
+                gender: "Male"
+                birth_date: "1990-01-15"
+                user_image: "/files/user_image.jpg"
+                language: "en"
+                time_zone: "America/New_York"
+                location: "New York, USA"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                exc_type: "DoesNotExistError"
+                exc: "User not found."
+                _server_messages: []
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /method/employee_management.auth.update_profile:
+    post:
+      tags:
+        - Authentication
+      summary: Update current user profile
+      description: |
+        Update profile information for the currently authenticated user.
+        
+        All fields are optional - only include the fields you want to update.
+        The function will only update fields that are provided in the request.
+        
+        **Note:** This endpoint requires authentication. The user must be logged in.
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            example:
+              first_name: "John"
+              last_name: "Doe"
+              mobile_no: "+1-555-123-4567"
+              gender: "Male"
+              birth_date: "1990-01-15"
+              language: "en"
+              time_zone: "America/New_York"
+              location: "New York, USA"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfileResponse'
+              example:
+                message:
+                  success: 1
+                  message: "Profile updated successfully"
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfileResponse'
+              example:
+                message:
+                  success: 0
+                  message: "Failed to update profile: Validation error"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ============================================
+  # COMPANY ENDPOINTS
+  # ============================================
+  /resource/BWCompany:
+    get:
+      tags:
+        - Companies
+      summary: List all companies
+      description: Retrieve a list of all companies with optional filtering and pagination
+      operationId: listCompanies
+      parameters:
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          required: false
+          schema:
+            type: string
+            example: "name,company_name,number_of_departments,number_of_employees"
+        - name: filters
+          in: query
+          description: JSON string for filtering results
+          required: false
+          schema:
+            type: string
+            example: '{"company_name": "Acme Corp"}'
+        - name: limit_start
+          in: query
+          description: Starting index for pagination (0-based)
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit_page_length
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: order_by
+          in: query
+          description: Field to order by (e.g., "modified desc")
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BWCompany'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Companies
+      summary: Create a new company
+      description: Create a new company record
+      operationId: createCompany
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BWCompanyCreate'
+      responses:
+        '200':
+          description: Company created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWCompany'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /resource/BWCompany/{name}:
+    get:
+      tags:
+        - Companies
+      summary: Get a specific company
+      description: Retrieve details of a specific company by name
+      operationId: getCompany
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the company
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWCompany'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    
+    put:
+      tags:
+        - Companies
+      summary: Update a company
+      description: Update an existing company record
+      operationId: updateCompany
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the company
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BWCompanyUpdate'
+      responses:
+        '200':
+          description: Company updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWCompany'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    
+    delete:
+      tags:
+        - Companies
+      summary: Delete a company
+      description: Delete a company record
+      operationId: deleteCompany
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the company
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Company deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ok"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # DEPARTMENT ENDPOINTS
+  # ============================================
+  /resource/BWDepartment:
+    get:
+      tags:
+        - Departments
+      summary: List all departments
+      description: Retrieve a list of all departments with optional filtering and pagination
+      operationId: listDepartments
+      parameters:
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          required: false
+          schema:
+            type: string
+            example: "name,company,company_name,department_name,number_of_employees"
+        - name: filters
+          in: query
+          description: JSON string for filtering results
+          required: false
+          schema:
+            type: string
+            example: '{"company": "COMP-001"}'
+        - name: limit_start
+          in: query
+          description: Starting index for pagination (0-based)
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit_page_length
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: order_by
+          in: query
+          description: Field to order by (e.g., "modified desc")
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BWDepartment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Departments
+      summary: Create a new department
+      description: Create a new department record
+      operationId: createDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BWDepartmentCreate'
+      responses:
+        '200':
+          description: Department created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWDepartment'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /resource/BWDepartment/{name}:
+    get:
+      tags:
+        - Departments
+      summary: Get a specific department
+      description: Retrieve details of a specific department by name
+      operationId: getDepartment
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the department
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWDepartment'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    
+    put:
+      tags:
+        - Departments
+      summary: Update a department
+      description: Update an existing department record
+      operationId: updateDepartment
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the department
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BWDepartmentUpdate'
+      responses:
+        '200':
+          description: Department updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWDepartment'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    
+    delete:
+      tags:
+        - Departments
+      summary: Delete a department
+      description: Delete a department record
+      operationId: deleteDepartment
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the department
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Department deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ok"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================
+  # EMPLOYEE ENDPOINTS
+  # ============================================
+  /resource/BWEmployee:
+    get:
+      tags:
+        - Employees
+      summary: List all employees
+      description: Retrieve a list of all employees with optional filtering and pagination
+      operationId: listEmployees
+      parameters:
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          required: false
+          schema:
+            type: string
+            example: "name,employee_name,email_address,company,department,employee_status"
+        - name: filters
+          in: query
+          description: JSON string for filtering results
+          required: false
+          schema:
+            type: string
+            example: '{"company": "COMP-001", "employee_status": "Hired"}'
+        - name: limit_start
+          in: query
+          description: Starting index for pagination (0-based)
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit_page_length
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: order_by
+          in: query
+          description: Field to order by (e.g., "modified desc")
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BWEmployee'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Employees
+      summary: Create a new employee
+      description: Create a new employee record
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BWEmployeeCreate'
+      responses:
+        '200':
+          description: Employee created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWEmployee'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /resource/BWEmployee/{name}:
+    get:
+      tags:
+        - Employees
+      summary: Get a specific employee
+      description: Retrieve details of a specific employee by name
+      operationId: getEmployee
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the employee
+          schema:
+            type: string
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWEmployee'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    
+    put:
+      tags:
+        - Employees
+      summary: Update an employee
+      description: Update an existing employee record
+      operationId: updateEmployee
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the employee
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BWEmployeeUpdate'
+      responses:
+        '200':
+          description: Employee updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BWEmployee'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    
+    delete:
+      tags:
+        - Employees
+      summary: Delete an employee
+      description: Delete an employee record
+      operationId: deleteEmployee
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The name (ID) of the employee
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Employee deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ok"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        API Key authentication. Format: `token <api_key>:<api_secret>`
+        Example: `Authorization: token abc123:secret456`
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: sid
+      description: Session cookie from web login
+
+  schemas:
+    LoginRequest:
+      type: object
+      description: Login credentials
+      required:
+        - usr
+        - pwd
+      properties:
+        usr:
+          type: string
+          description: Username or email address
+          example: "administrator@example.com"
+        pwd:
+          type: string
+          format: password
+          description: User password
+          example: "your_password"
+      additionalProperties: false
+
+    LoginSuccessResponse:
+      type: object
+      description: Successful login response
+      properties:
+        message:
+          type: object
+          properties:
+            success:
+              type: boolean
+              description: Indicates successful authentication
+              example: true
+            message:
+              type: string
+              description: Success message
+              example: "Authentication Success"
+            sid:
+              type: string
+              description: Session ID for subsequent authenticated requests
+              example: "abc123def456789"
+          required:
+            - success
+            - message
+            - sid
+
+    LoginErrorResponse:
+      type: object
+      description: Failed login response
+      properties:
+        message:
+          type: object
+          properties:
+            success:
+              type: boolean
+              description: Indicates failed authentication
+              example: false
+            message:
+              type: string
+              description: Error message
+              example: "Authentication Failed"
+          required:
+            - success
+            - message
+
+    AccountResponse:
+      type: object
+      description: User account information
+      properties:
+        name:
+          type: string
+          description: User ID (email or username)
+          example: "administrator@example.com"
+        creation:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2024-01-01 10:00:00"
+        first_name:
+          type: string
+          description: User's first name
+          example: "John"
+        middle_name:
+          type: string
+          description: User's middle name
+          nullable: true
+          example: ""
+        last_name:
+          type: string
+          description: User's last name
+          example: "Doe"
+        full_name:
+          type: string
+          description: User's full name (first + middle + last)
+          example: "John Doe"
+        username:
+          type: string
+          description: Username
+          example: "administrator"
+        roles:
+          type: array
+          description: List of roles assigned to the user
+          items:
+            type: string
+          example:
+            - "System Manager"
+            - "BWAdmin"
+        mobile_no:
+          type: string
+          description: Mobile phone number
+          nullable: true
+          example: "+1-555-123-4567"
+        gender:
+          type: string
+          description: User's gender
+          nullable: true
+          enum:
+            - Male
+            - Female
+            - Other
+          example: "Male"
+        birth_date:
+          type: string
+          format: date
+          description: Date of birth
+          nullable: true
+          example: "1990-01-15"
+        user_image:
+          type: string
+          description: URL or path to user's profile image
+          nullable: true
+          example: "/files/user_image.jpg"
+        language:
+          type: string
+          description: Preferred language code
+          nullable: true
+          example: "en"
+        time_zone:
+          type: string
+          description: User's time zone
+          nullable: true
+          example: "America/New_York"
+        location:
+          type: string
+          description: User's location
+          nullable: true
+          example: "New York, USA"
+      required:
+        - name
+        - creation
+        - first_name
+        - last_name
+        - full_name
+        - username
+        - roles
+
+    UpdateProfileRequest:
+      type: object
+      description: Profile update request - all fields are optional
+      properties:
+        first_name:
+          type: string
+          description: User's first name
+          example: "John"
+        middle_name:
+          type: string
+          description: User's middle name
+          nullable: true
+          example: ""
+        last_name:
+          type: string
+          description: User's last name
+          example: "Doe"
+        mobile_no:
+          type: string
+          description: Mobile phone number
+          nullable: true
+          example: "+1-555-123-4567"
+        gender:
+          type: string
+          description: User's gender
+          nullable: true
+          enum:
+            - Male
+            - Female
+            - Other
+          example: "Male"
+        birth_date:
+          type: string
+          format: date
+          description: Date of birth
+          nullable: true
+          example: "1990-01-15"
+        user_image:
+          type: string
+          description: URL or path to user's profile image
+          nullable: true
+          example: "/files/user_image.jpg"
+        language:
+          type: string
+          description: Preferred language code
+          nullable: true
+          example: "en"
+        time_zone:
+          type: string
+          description: User's time zone
+          nullable: true
+          example: "America/New_York"
+        location:
+          type: string
+          description: User's location
+          nullable: true
+          example: "New York, USA"
+      additionalProperties: false
+
+    UpdateProfileResponse:
+      type: object
+      description: Profile update response
+      properties:
+        message:
+          type: object
+          properties:
+            success:
+              type: integer
+              description: Success indicator (1 for success, 0 for failure)
+              example: 1
+            message:
+              type: string
+              description: Response message
+              example: "Profile updated successfully"
+          required:
+            - success
+            - message
+
+    BWCompany:
+      type: object
+      description: Company resource
+      properties:
+        name:
+          type: string
+          description: Unique identifier (auto-generated)
+          readOnly: true
+          example: "COMP-00001"
+        company_name:
+          type: string
+          description: Name of the company
+          required: true
+          example: "Acme Corporation"
+        number_of_departments:
+          type: integer
+          description: Number of departments in the company (read-only, auto-calculated)
+          readOnly: true
+          example: 5
+        number_of_employees:
+          type: integer
+          description: Number of employees in the company (read-only, auto-calculated)
+          readOnly: true
+          example: 150
+        owner:
+          type: string
+          description: Owner of the record
+          readOnly: true
+        creation:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+          readOnly: true
+        modified_by:
+          type: string
+          description: User who last modified the record
+          readOnly: true
+      required:
+        - company_name
+
+    BWCompanyCreate:
+      type: object
+      description: Data for creating a new company
+      properties:
+        company_name:
+          type: string
+          description: Name of the company
+          example: "Acme Corporation"
+      required:
+        - company_name
+
+    BWCompanyUpdate:
+      type: object
+      description: Data for updating a company
+      properties:
+        company_name:
+          type: string
+          description: Name of the company
+          example: "Acme Corporation Inc."
+
+    BWDepartment:
+      type: object
+      description: Department resource
+      properties:
+        name:
+          type: string
+          description: Unique identifier (auto-generated)
+          readOnly: true
+          example: "DEPT-00001"
+        company:
+          type: string
+          description: Reference to the company (BWCompany name)
+          required: true
+          example: "COMP-00001"
+        company_name:
+          type: string
+          description: Company name (read-only, fetched from company)
+          readOnly: true
+          example: "Acme Corporation"
+        department_name:
+          type: string
+          description: Name of the department
+          required: true
+          example: "Engineering"
+        number_of_employees:
+          type: integer
+          description: Number of employees in the department (read-only, auto-calculated)
+          readOnly: true
+          example: 25
+        owner:
+          type: string
+          description: Owner of the record
+          readOnly: true
+        creation:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+          readOnly: true
+        modified_by:
+          type: string
+          description: User who last modified the record
+          readOnly: true
+      required:
+        - company
+        - department_name
+
+    BWDepartmentCreate:
+      type: object
+      description: Data for creating a new department
+      properties:
+        company:
+          type: string
+          description: Reference to the company (BWCompany name)
+          example: "COMP-00001"
+        department_name:
+          type: string
+          description: Name of the department
+          example: "Engineering"
+      required:
+        - company
+        - department_name
+
+    BWDepartmentUpdate:
+      type: object
+      description: Data for updating a department
+      properties:
+        company:
+          type: string
+          description: Reference to the company (BWCompany name)
+          example: "COMP-00001"
+        department_name:
+          type: string
+          description: Name of the department
+          example: "Software Engineering"
+
+    BWEmployee:
+      type: object
+      description: Employee resource
+      properties:
+        name:
+          type: string
+          description: Unique identifier (auto-generated)
+          readOnly: true
+          example: "EMP-00001"
+        company:
+          type: string
+          description: Reference to the company (BWCompany name)
+          required: true
+          example: "COMP-00001"
+        company_name:
+          type: string
+          description: Company name (read-only, fetched from company)
+          readOnly: true
+          example: "Acme Corporation"
+        department:
+          type: string
+          description: Reference to the department (BWDepartment name)
+          required: true
+          example: "DEPT-00001"
+        department_name:
+          type: string
+          description: Department name (read-only, fetched from department)
+          readOnly: true
+          example: "Engineering"
+        employee_name:
+          type: string
+          description: Full name of the employee
+          required: true
+          example: "John Doe"
+        email_address:
+          type: string
+          format: email
+          description: Email address of the employee
+          required: true
+          example: "john.doe@example.com"
+        mobile_number:
+          type: string
+          description: Mobile phone number
+          required: true
+          example: "+1-555-123-4567"
+        address:
+          type: string
+          description: Physical address
+          example: "123 Main St, City, State 12345"
+        designation_title:
+          type: string
+          description: Job title or designation
+          example: "Senior Software Engineer"
+        employee_status:
+          type: string
+          description: Current status of the employee
+          enum:
+            - Application Received
+            - Interview Scheduled
+            - Hired
+            - Not Accepted
+          example: "Hired"
+        hired_on:
+          type: string
+          format: date
+          description: Date when the employee was hired
+          example: "2024-01-15"
+        days_employeed:
+          type: integer
+          description: Number of days employed (read-only, auto-calculated)
+          readOnly: true
+          example: 365
+        is_manager:
+          type: boolean
+          description: Whether the employee is a manager (read-only, auto-calculated)
+          readOnly: true
+          default: false
+          example: false
+        owner:
+          type: string
+          description: Owner of the record
+          readOnly: true
+        creation:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+          readOnly: true
+        modified_by:
+          type: string
+          description: User who last modified the record
+          readOnly: true
+      required:
+        - company
+        - department
+        - employee_name
+        - email_address
+        - mobile_number
+
+    BWEmployeeCreate:
+      type: object
+      description: Data for creating a new employee
+      properties:
+        company:
+          type: string
+          description: Reference to the company (BWCompany name)
+          example: "COMP-00001"
+        department:
+          type: string
+          description: Reference to the department (BWDepartment name)
+          example: "DEPT-00001"
+        employee_name:
+          type: string
+          description: Full name of the employee
+          example: "John Doe"
+        email_address:
+          type: string
+          format: email
+          description: Email address of the employee
+          example: "john.doe@example.com"
+        mobile_number:
+          type: string
+          description: Mobile phone number
+          example: "+1-555-123-4567"
+        address:
+          type: string
+          description: Physical address
+          example: "123 Main St, City, State 12345"
+        designation_title:
+          type: string
+          description: Job title or designation
+          example: "Senior Software Engineer"
+        employee_status:
+          type: string
+          description: Current status of the employee
+          enum:
+            - Application Received
+            - Interview Scheduled
+            - Hired
+            - Not Accepted
+          example: "Hired"
+        hired_on:
+          type: string
+          format: date
+          description: Date when the employee was hired
+          example: "2024-01-15"
+      required:
+        - company
+        - department
+        - employee_name
+        - email_address
+        - mobile_number
+
+    BWEmployeeUpdate:
+      type: object
+      description: Data for updating an employee
+      properties:
+        company:
+          type: string
+          description: Reference to the company (BWCompany name)
+          example: "COMP-00001"
+        department:
+          type: string
+          description: Reference to the department (BWDepartment name)
+          example: "DEPT-00001"
+        employee_name:
+          type: string
+          description: Full name of the employee
+          example: "John Doe"
+        email_address:
+          type: string
+          format: email
+          description: Email address of the employee
+          example: "john.doe@example.com"
+        mobile_number:
+          type: string
+          description: Mobile phone number
+          example: "+1-555-123-4567"
+        address:
+          type: string
+          description: Physical address
+          example: "123 Main St, City, State 12345"
+        designation_title:
+          type: string
+          description: Job title or designation
+          example: "Lead Software Engineer"
+        employee_status:
+          type: string
+          description: Current status of the employee
+          enum:
+            - Application Received
+            - Interview Scheduled
+            - Hired
+            - Not Accepted
+          example: "Hired"
+        hired_on:
+          type: string
+          format: date
+          description: Date when the employee was hired
+          example: "2024-01-15"
+
+    Error:
+      type: object
+      description: Error response
+      properties:
+        exc_type:
+          type: string
+          description: Exception type
+        exc:
+          type: string
+          description: Exception message
+        _server_messages:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+              indicator:
+                type: string
+              title:
+                type: string
+
+  responses:
+    BadRequestError:
+      description: Bad request - Invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            exc_type: "ValidationError"
+            exc: "Company Name is required"
+            _server_messages: []
+
+    UnauthorizedError:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            exc_type: "AuthenticationError"
+            exc: "Authentication required"
+            _server_messages: []
+
+    ForbiddenError:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            exc_type: "PermissionError"
+            exc: "Insufficient permissions"
+            _server_messages: []
+
+    NotFoundError:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            exc_type: "DoesNotExistError"
+            exc: "BWEmployee EMP-00001 does not exist"
+            _server_messages: []
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            exc_type: "InternalError"
+            exc: "An internal error occurred"
+            _server_messages: []
+
+security:
+  - ApiKeyAuth: []
+  - CookieAuth: []
+
