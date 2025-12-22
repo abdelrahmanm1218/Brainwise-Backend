@@ -1,4 +1,5 @@
-import frappe 
+import frappe
+from frappe import _
 
 @frappe.whitelist(allow_guest=True)
 def login(usr, pwd):
@@ -62,10 +63,9 @@ def update_profile(first_name=None,middle_name=None, last_name=None , mobile_no=
     try:
         user = frappe.get_doc('User', frappe.session.user)
         if first_name: user.first_name = first_name
-        if middle_name:  user.middle_name = middle_name
+        if middle_name: user.middle_name = middle_name
         if user_image: user.user_image = user_image
         if last_name: user.last_name = last_name
-        if last_name:  user.last_name = last_name
         if mobile_no: user.mobile_no = mobile_no
         if time_zone: user.time_zone = time_zone
         if language: user.language = language

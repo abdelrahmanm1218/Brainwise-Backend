@@ -6,14 +6,12 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import validate_email_address
 import re
-import frappe
 
 def validate_phone_number(mobile_number):
 	if mobile_number:
 		pattern = r"^\+?\d{8,15}$"  # allows + optional, 8–15 digits
-
-	if not re.match(pattern, mobile_number):
-            frappe.throw("Invalid mobile phone number format.", frappe.ValidationError)
+		if not re.match(pattern, mobile_number):
+			frappe.throw("Invalid mobile phone number format.", frappe.ValidationError)
 
 class BWEmployee(Document):
 
