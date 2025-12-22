@@ -42,7 +42,3 @@ class BWCompany(Document):
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
 
-	
-
-
-# Add on_update and on_trash hooks to auto-update counts when departments/employees change.

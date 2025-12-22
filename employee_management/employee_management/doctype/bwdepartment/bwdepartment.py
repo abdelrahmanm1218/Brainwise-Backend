@@ -47,14 +47,3 @@ class BWDepartment(Document):
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
 
-
-
-
-
-
-
-
-# Implement on_insert, on_trash, and on_update hooks to update Company’s number_of_departments and number_of_employees.
-
-
-
