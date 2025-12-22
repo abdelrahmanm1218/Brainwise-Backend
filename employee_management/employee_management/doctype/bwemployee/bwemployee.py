@@ -105,10 +105,3 @@ class BWEmployee(Document):
 			company_doc.update_employee_count()
 	
 
-
-
-# Workflow
-
-# Add a Frappe Workflow for employee_status to enforce allowed transitions.
-
-# On status change to Hired, validate hired_on is provided.
