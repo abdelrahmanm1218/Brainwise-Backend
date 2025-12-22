@@ -247,3 +247,8 @@ app_license = "mit"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+# Migration
+# ----------
+# Function to run after migrations are completed
+after_migrate = "employee_management.migrate.after_migrate"
+

@@ -49,10 +49,33 @@ class BWEmployee(Document):
 			if dept_doc.company != self.company:
 				frappe.throw("Selected Department does not belong to the selected Company")
 		
+		# Validate hired_on and days_employeed based on employee_status
+		self.validate_hired_fields()
 	
 	def check_empty_fields(self):
 		if self.employee_name == None or self.email_address == None or self.company == None or self.department == None or self.mobile_number == None:
 			frappe.throw("Employee Name, Email, Company, Department, and Mobile Number must be set for the Employee")
+	
+	def validate_hired_fields(self):
+		"""
+		Validates that hired_on and days_employeed can only have values 
+		when employee_status is 'Hired'. Otherwise, these fields must be empty.
+		Enforces empty values when status is not 'Hired'.
+		"""
+		is_hired = self.employee_status == "Hired"
+		
+		if not is_hired:
+			# If status is not "Hired", enforce empty values
+			# Clear the fields automatically and log the action and throw a validation error
+			if self.hired_on:
+				frappe.log_error(f"Hired On date cleared for employee {self.name} due to status change.", "BWEmployee Validation")
+				self.hired_on = None
+				frappe.throw("Hired On date must be empty when Employee Status is not 'Hired'. It has been cleared automatically.", frappe.ValidationError)
+			
+			if self.days_employeed:
+				frappe.log_error(f"Days Employeed cleared for employee {self.name} due to status change.", "BWEmployee Validation")
+				self.days_employeed = None
+				frappe.throw("Days Employeed must be empty when Employee Status is not 'Hired'. It has been cleared automatically.", frappe.ValidationError)	
 
 	# after inserting or updating an employee, update the counts of employees in the department and company
 	def on_update(self):
